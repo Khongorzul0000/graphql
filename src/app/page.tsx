@@ -1,113 +1,288 @@
-import Image from "next/image";
+"use client";
+
+import { GetTodoListDocument, GetTodoListQuery, Todo, useGetTodoListQuery } from "@/graphql/generated";
+import { gql, useLazyQuery, useMutation, useQuery } from "@apollo/client";
+import { useState } from "react";
+
+const GET_TODO = gql`
+  query Query($id: ID) {
+    getTodo(id: $id) {
+      id
+      title
+      completed
+    }
+  }
+`;
+
+const CREATE_TODO = gql`
+  mutation Mutation($input: TodoCreateInput!) {
+    createTodo(input: $input) {
+      id
+      title
+      completed
+    }
+  }
+`;
+
+const DELETE_TODO = gql`
+  mutation DeleteTodo($id: ID) {
+    deleteTodo(id: $id) {
+      id
+      title
+      completed
+    }
+  }
+`;
+
+const EDIT_TODO = gql`
+  mutation UpdateTodo($input: TodoUpdateInput!) {
+    updateTodo(input: $input) {
+      id
+      title
+      completed
+    }
+  }
+`;
 
 export default function Home() {
+  const [title, setTitle] = useState("");
+
+  const { data, loading, error } = useGetTodoListQuery();
+  const [createTodo, { data: createdData, loading: createLoading, error: createError }] = useMutation(CREATE_TODO);
+  const [deleteTodo, { data: deleteData, loading: deleteLoading, error: deleteError }] = useMutation(DELETE_TODO);
+  const [getTodo, { data: getTodoData, loading: getTodoLoading, error: getTodoError }] = useLazyQuery(GET_TODO);
+  const [editTodo, { data: editData, loading: editLoading, error: editError }] = useMutation(EDIT_TODO);
+
+  console.log({ getTodoData, getTodoLoading, getTodoError });
+
+  if (loading) return <>Loading...</>;
+  if (error) return <>{error.message}...</>;
+  const { getTodoList } = data as GetTodoListQuery;
+
+  const handleSubmit = (e: any) => {
+    e.preventDefault();
+    createTodo({
+      variables: {
+        input: {
+          title,
+          completed: false,
+        },
+      },
+      refetchQueries: [{ query: GetTodoListDocument }],
+    });
+  };
+
+  const handleItemClick = (id: string) => {
+    getTodo({
+      variables: {
+        id,
+      },
+    });
+  };
+  const Delete = (id: string) => {
+    deleteTodo({
+      variables: {
+        id,
+      },
+      refetchQueries: [{ query: GetTodoListDocument }],
+    });
+  };
+  const Edit = (e: any) => {
+    e.preventDefault();
+    editTodo({
+      variables: {
+        input: {
+          title,
+          completed: false,
+        },
+      },
+      refetchQueries: [{ query: GetTodoListDocument }],
+    });
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+    <div>
+      <h1>{getTodoData?.getTodo && <>{getTodoData.getTodo.title}</>}</h1>
+      <ul className="list-disc pl-5 mb-5">
+        {getTodoList?.map((todo: Todo | null) => {
+          if (todo === null) return null;
+          return (
+            <li key={todo.id} className="cursor-pointer hover:underline" onClick={() => handleItemClick(todo.id)}>
+              {todo.title}
+              <button className="btn" onClick={() => Delete(todo.id)}>
+                delete
+              </button>
+              <button className="btn ml-8" onSubmit={Edit}>
+                edit
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <form onSubmit={handleSubmit} className="flex">
+        <input
+          type="text"
+          placeholder="Type here"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="input input-bordered w-full max-w-xs"
         />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+        <button className="btn">Add todo</button>
+      </form>
+    </div>
   );
 }
+
+// "use client"
+// import { Todo } from "@/service/todo-service";
+// import { gql, useLazyQuery, useMutation, useQuery } from "@apollo/client";
+// import { useState } from "react";
+
+// const GET_TODO_LIST = gql`
+//   query GetTodoList {
+//     getTodoList {
+//       id
+//       title
+//       completed
+//     }
+//   }
+// `;
+
+// const GET_TODO = gql`
+//   query Query($id: ID) {
+//     getTodo(id: $id) {
+//       id
+//       title
+//       completed
+//     }
+//   }
+// `;
+
+// const CREATE_TODO = gql`
+//   mutation Mutation($input: TodoCreateInput!) {
+//     createTodo(input: $input) {
+//       id
+//       title
+//       completed
+//     }
+//   }
+// `;
+
+// const DELETE_TODO = gql`
+//   mutation DeleteTodo($id: ID) {
+//     deleteTodo(id: $id) {
+//       id
+//       title
+//       completed
+//     }
+//   }
+// `;
+
+// const EDIT_TODO = gql`
+//   mutation UpdateTodo($id: ID!, $title: String!) {
+//     updateTodo(id: $id, title: $title) {
+//       id
+//       title
+//       completed
+//     }
+//   }
+// `;
+
+// export default function Home() {
+//   const [title, setTitle] = useState("");
+//   const [editingTodoId, setEditingTodoId] = useState<string | null>(null); // Track which todo is being edited
+
+//   const { data, loading, error } = useQuery(GET_TODO_LIST);
+//   const [createTodo] = useMutation(CREATE_TODO);
+//   const [deleteTodo] = useMutation(DELETE_TODO);
+//   const [editTodo] = useMutation(EDIT_TODO);
+//   const [getTodo, { data: getTodoData }] = useLazyQuery(GET_TODO);
+
+//   if (loading) return <>Loading...</>;
+//   if (error) return <>{error.message}...</>;
+//   const { getTodoList } = data;
+
+//   const handleSubmit = (e: any) => {
+//     e.preventDefault();
+//     createTodo({
+//       variables: {
+//         input: {
+//           title,
+//           completed: false,
+//         },
+//       },
+//       refetchQueries: [{ query: GET_TODO_LIST }],
+//     });
+//     setTitle(""); // Reset input field after submission
+//   };
+
+//   const handleItemClick = (id: string) => {
+//     getTodo({
+//       variables: {
+//         id,
+//       },
+//     });
+//   };
+
+//   const handleEdit = (todoId: string, newTitle: string) => {
+//     editTodo({
+//       variables: {
+//         id: todoId,
+//         title: newTitle,
+//       },
+//       refetchQueries: [{ query: GET_TODO_LIST }],
+//     });
+//     setEditingTodoId(null); // Reset editing state after submission
+//   };
+
+//   const handleDelete = (id: string) => {
+//     deleteTodo({
+//       variables: {
+//         id,
+//       },
+//       refetchQueries: [{ query: GET_TODO_LIST }],
+//     });
+//   };
+
+//   return (
+//     <div>
+//       <h1>{getTodoData?.getTodo && <>{getTodoData.getTodo.title}</>}</h1>
+//       <ul className="list-disc pl-5 mb-5">
+//         {getTodoList.map((todo: Todo) => (
+//           <li key={todo.id}>
+//             {editingTodoId === todo.id ? (
+//               <form
+//                 onSubmit={(e) => {
+//                   e.preventDefault();
+//                   handleEdit(todo.id, title);
+//                 }}
+//               >
+//                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+//                 <button type="submit">Save</button>
+//                 <button onClick={() => setEditingTodoId(null)}>Cancel</button>
+//               </form>
+//             ) : (
+//               <>
+//                 <span onClick={() => handleItemClick(todo.id)}>{todo.title}</span>
+//                 <button onClick={() => handleDelete(todo.id)}>Delete</button>
+//                 <button onClick={() => setEditingTodoId(todo.id)}>Edit</button>
+//               </>
+//             )}
+//           </li>
+//         ))}
+//       </ul>
+//       <form onSubmit={handleSubmit} className="flex">
+//         <input
+//           type="text"
+//           placeholder="Type here"
+//           value={title}
+//           onChange={(e) => setTitle(e.target.value)}
+//           className="input input-bordered w-full max-w-xs"
+//         />
+//         <button type="submit" className="btn">
+//           Add Todo
+//         </button>
+//       </form>
+//     </div>
+//   );
+// }
